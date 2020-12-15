@@ -1,0 +1,61 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI to DockerHub
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    tags: 
+        - v*.*.*
+    branches:
+        - master
+
+
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Check out this repo
+        uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with: 
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN}}
+
+      # Runs a set of commands using the runners shell
+      - name: Set up Docker BuildX
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Set up Cache
+        uses: actions/cache@v2
+        with:
+            path: /tmp/.buildx-cache
+            key: ${{ runner.os }}-buildx-${{ github.sha }}
+            restore-keys: |
+                ${{ runner.os }}-buildx-
+
+      - name: Build and Push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          context: ./
+          file: ./Dockerfile
+          push: true
+          tags: dalinar/fastcatboost:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+      
+      - name: Image Dataset
+        run: echo ${{ steps.docker_build.outputs.digest }}
